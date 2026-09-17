@@ -161,7 +161,7 @@ fun LoginScreen(onLoggedIn: () -> Unit, onGoRegister: () -> Unit) {
             }
             Spacer(Modifier.height(20.dp))
             Text(
-                "EIS v1.0.1 · Engineering Inventory Sistem",
+                "EIS v1.0.2 · Engineering Inventory Sistem",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

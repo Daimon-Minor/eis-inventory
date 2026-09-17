@@ -174,7 +174,7 @@ fun LoadingBox(modifier: Modifier = Modifier) {
 fun EmptyBox(text: String, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("📦", fontSize = 34.sp)
+            BrandLogo(size = 48)
             Spacer(Modifier.height(8.dp))
             Text(text, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
