@@ -2,8 +2,11 @@ package com.eis.inventory.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.History
@@ -19,16 +22,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eis.inventory.data.Remote
 import com.eis.inventory.data.Session
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private data class EisTab(val label: String, val icon: ImageVector)
 
@@ -38,6 +49,38 @@ fun MainScreen(onLogout: () -> Unit) {
     val user = Session.current()
     val admin = Session.isAdmin()
     var tab by remember { mutableStateOf(0) }
+
+    // Auto refresh: pantau perubahan data (stok masuk/keluar dari web) setiap 7 detik.
+    var autoTick by remember { mutableStateOf(0) }
+    var signature by remember { mutableStateOf("") }
+    var updatedAt by remember { mutableStateOf("") }
+    var notice by remember { mutableStateOf<String?>(null) }
+    val clock = remember { SimpleDateFormat("HH:mm:ss", Locale("id", "ID")) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val pulse = Remote.pulse()
+                val sig = pulse.signature
+                if (signature.isNotEmpty() && sig != signature) {
+                    autoTick += 1
+                    notice = "Stok berubah — data diperbarui"
+                }
+                signature = sig
+                updatedAt = clock.format(Date())
+            } catch (e: Exception) {
+                // koneksi terputus sesaat: lewati siklus ini, coba lagi berikutnya
+            }
+            delay(7000)
+        }
+    }
+
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            delay(2800)
+            notice = null
+        }
+    }
 
     val tabs = if (admin) {
         listOf(
@@ -58,13 +101,17 @@ fun MainScreen(onLogout: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("EIS", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text(
-                            text = "Engineering Inventory Sistem",
-                            fontSize = 11.sp,
-                            color = Color(0xFFBDEDE8)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BrandLogo(size = 34)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("EIS", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text(
+                                text = "Engineering Inventory Sistem",
+                                fontSize = 11.sp,
+                                color = Color(0xFFBDEDE8)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -86,13 +133,24 @@ fun MainScreen(onLogout: () -> Unit) {
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            val label = tabs.getOrNull(tab)?.label ?: "Stok"
-            when (label) {
-                "Stok" -> StockScreen(admin = admin)
-                "Kelola" -> ManageScreen()
-                "Riwayat" -> HistoryScreen(admin = admin, viewer = user?.display ?: "")
-                else -> ProfileScreen(onLogout = onLogout)
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            SyncBar(
+                status = notice ?: if (updatedAt.isBlank()) "" else "Diperbarui $updatedAt · otomatis",
+                busy = false,
+                onRefresh = { autoTick += 1 }
+            )
+            Box(Modifier.fillMaxSize()) {
+                val label = tabs.getOrNull(tab)?.label ?: "Stok"
+                when (label) {
+                    "Stok" -> StockScreen(admin = admin, autoTick = autoTick)
+                    "Kelola" -> ManageScreen()
+                    "Riwayat" -> HistoryScreen(
+                        admin = admin,
+                        viewer = user?.display ?: "",
+                        autoTick = autoTick
+                    )
+                    else -> ProfileScreen(onLogout = onLogout)
+                }
             }
         }
     }

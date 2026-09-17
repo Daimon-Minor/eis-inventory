@@ -124,4 +124,13 @@ object Remote {
             "full_name" to name, "password" to password, "role" to role))
 
     suspend fun deleteUser(id: Long): String = Http.delete("/api/users/" + id)
+
+    suspend fun changePassword(oldPassword: String, newPassword: String): String =
+        Http.post("/api/change-password", mapOf(
+            "old_password" to oldPassword,
+            "new_password" to newPassword
+        ))
+
+    /** Sidik jari data untuk auto refresh (stok masuk/keluar, barang, kategori, pengguna). */
+    suspend fun pulse(): Pulse = Http.parse(Http.get("/api/pulse"), Pulse::class.java)
 }

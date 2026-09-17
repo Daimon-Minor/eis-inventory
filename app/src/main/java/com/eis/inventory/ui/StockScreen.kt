@@ -66,7 +66,7 @@ private data class StockAction(val item: Item, val mode: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StockScreen(admin: Boolean) {
+fun StockScreen(admin: Boolean, autoTick: Int = 0) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var items by remember { mutableStateOf(listOf<Item>()) }
@@ -83,8 +83,9 @@ fun StockScreen(admin: Boolean) {
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(refresh, query, catFilter, statusFilter) {
-        loading = true
+    LaunchedEffect(refresh, autoTick, query, catFilter, statusFilter) {
+        // auto refresh: jangan tampilkan spinner saat data sudah ada agar daftar tidak berkedip
+        if (items.isEmpty()) loading = true
         error = null
         if (query.isNotBlank()) delay(280)
         try {

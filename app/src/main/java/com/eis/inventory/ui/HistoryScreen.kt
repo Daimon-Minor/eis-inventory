@@ -34,15 +34,15 @@ import com.eis.inventory.data.Remote
 import com.eis.inventory.data.Tx
 
 @Composable
-fun HistoryScreen(admin: Boolean, viewer: String = "") {
+fun HistoryScreen(admin: Boolean, viewer: String = "", autoTick: Int = 0) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var rows by remember { mutableStateOf(listOf<Tx>()) }
     var filter by remember { mutableStateOf("") }
     var refresh by remember { mutableStateOf(0) }
 
-    LaunchedEffect(refresh) {
-        loading = true
+    LaunchedEffect(refresh, autoTick) {
+        if (rows.isEmpty()) loading = true
         error = null
         try {
             rows = if (admin) Remote.transactions(150) else Remote.myTransactions()
@@ -60,7 +60,7 @@ fun HistoryScreen(admin: Boolean, viewer: String = "") {
 
     Column(Modifier.fillMaxSize()) {
         LazyRow(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
@@ -75,7 +75,8 @@ fun HistoryScreen(admin: Boolean, viewer: String = "") {
         }
 
         Text(
-            text = if (admin) "Semua transaksi barang (semua petugas)" else "Riwayat pengambilan saya",
+            text = if (admin) "Riwayat transaksi barang — semua pengambil"
+            else "Riwayat pengambilan saya" + (if (viewer.isNotBlank()) " ($viewer)" else ""),
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 16.dp, bottom = 6.dp)
@@ -112,7 +113,13 @@ fun HistoryScreen(admin: Boolean, viewer: String = "") {
                             }
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                text = Fmt.date(row.created_at) + "  ·  " + (row.actor ?: "-"),
+                                text = "Pengambil: " + row.pengambil,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = Fmt.date(row.created_at) +
+                                    (if (!row.category.isNullOrBlank()) "  ·  " + row.category else ""),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

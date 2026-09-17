@@ -1,5 +1,6 @@
 package com.eis.inventory.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,14 +23,19 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eis.inventory.R
 import com.eis.inventory.data.Fmt
 import com.eis.inventory.data.Item
 
@@ -95,13 +101,39 @@ fun InfoRow(label: String, value: String) {
 
 @Composable
 fun BrandLogo(size: Int = 68) {
-    Box(
+    Image(
+        painter = painterResource(R.mipmap.ic_launcher),
+        contentDescription = "Logo EIS",
+        contentScale = ContentScale.Crop,
         modifier = Modifier
             .size(size.dp)
-            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape((size / 4).dp)),
-        contentAlignment = Alignment.Center
+            .clip(RoundedCornerShape((size / 4).dp))
+    )
+}
+
+@Composable
+fun SyncBar(status: String, busy: Boolean, onRefresh: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 6.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("EIS", color = Color.White, fontWeight = FontWeight.Black, fontSize = (size / 3).sp)
+        Text(
+            text = if (status.isBlank()) "Menyinkronkan data…" else status,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        if (busy) {
+            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
+            Spacer(Modifier.width(6.dp))
+        }
+        TextButton(onClick = onRefresh) {
+            Icon(Icons.Default.Refresh, contentDescription = "Muat ulang", modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Muat ulang", fontSize = 12.sp)
+        }
     }
 }
 

@@ -52,10 +52,27 @@ data class Tx(
     val unit: String? = null,
     val note: String? = null,
     val actor: String? = null,
+    val actor_name: String? = null,
     val actor_type: String? = null,
     val category: String? = null,
     val created_at: Long? = null
-)
+) {
+    /** Nama pengambil/petugas yang ditampilkan (selalu nama orang, bukan username). */
+    val pengambil: String
+        get() = if (!actor_name.isNullOrBlank()) actor_name else if (!actor.isNullOrBlank()) actor else "-"
+}
+
+data class Pulse(
+    val items: Int? = null,
+    val transactions: Int? = null,
+    val last_tx_id: Long? = null,
+    val categories: Int? = null,
+    val users: Int? = null,
+    val ts: Long? = null
+) {
+    /** Sidik jari data: berubah bila ada stok masuk/keluar, barang, kategori, atau pengguna baru. */
+    val signature: String get() = "$items|$transactions|$last_tx_id|$categories|$users"
+}
 
 data class WebUser(
     val id: Long? = null,
