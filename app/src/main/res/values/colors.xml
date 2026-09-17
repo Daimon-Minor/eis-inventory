@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Latar adaptive icon disamakan dengan latar logo (hitam), bukan teal lama #0F6E68 -->
-    <color name="ic_launcher_background">#000000</color>
+    <!-- Latar adaptive icon = hitam (sesuai latar logo EIS), bukan teal lama #0F6E68 -->
+    <color name="eis_launcher_bg">#000000</color>
 </resources>
