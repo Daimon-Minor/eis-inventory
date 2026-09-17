@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.EIS" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#0B5350</item>
+        <item name="android:windowBackground">#F5F7F8</item>
+    </style>
+</resources>
