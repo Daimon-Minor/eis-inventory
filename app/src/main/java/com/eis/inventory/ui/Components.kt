@@ -1,5 +1,6 @@
 package com.eis.inventory.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,12 +26,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -101,14 +104,37 @@ fun InfoRow(label: String, value: String) {
 
 @Composable
 fun BrandLogo(size: Int = 68) {
-    Image(
-        painter = painterResource(R.mipmap.ic_launcher),
-        contentDescription = "Logo EIS",
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .size(size.dp)
-            .clip(RoundedCornerShape((size / 4).dp))
-    )
+    // PENTING: jangan memakai @mipmap/ic_launcher di sini.
+    // Mulai Android 8 (API 26) resource itu berupa <adaptive-icon> XML, sedangkan
+    // painterResource() hanya mendukung VectorDrawable atau raster (PNG/JPG).
+    // Memuatnya lewat painterResource() membuat aplikasi crash saat dibuka.
+    // Logo dalam aplikasi dipakai dari drawable raster tersendiri: drawable-nodpi/logo_eis.png
+    val context = LocalContext.current
+    val bmp = remember {
+        runCatching {
+            BitmapFactory.decodeResource(context.resources, R.drawable.logo_eis)
+        }.getOrNull()
+    }
+    if (bmp != null) {
+        Image(
+            bitmap = bmp.asImageBitmap(),
+            contentDescription = "Logo EIS",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(size.dp)
+                .clip(RoundedCornerShape((size / 4).dp))
+        )
+    } else {
+        // Cadangan: kartu teks, supaya aplikasi tetap tampil walau aset gagal dibaca.
+        Box(
+            modifier = Modifier
+                .size(size.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape((size / 4).dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("EIS", color = Color.White, fontWeight = FontWeight.Black, fontSize = (size / 3).sp)
+        }
+    }
 }
 
 @Composable
