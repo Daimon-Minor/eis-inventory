@@ -8,11 +8,25 @@ data class User(
     val id: Long? = null,
     val name: String? = null,
     val username: String? = null,
-    val role: String? = null
+    val role: String? = null,
+    val duty_status: String? = null
 ) {
     val display: String get() = if (!name.isNullOrBlank()) name else if (!username.isNullOrBlank()) username else "Pengguna"
-    val isAdmin: Boolean get() = (role ?: "").equals("admin", true)
-    val roleLabel: String get() = if (isAdmin) "Administrator" else "Teknisi"
+
+    /** Admin & superuser sama-sama punya akses penuh ke seluruh fitur. */
+    val isAdmin: Boolean get() = role.equals("admin", true) || role.equals("superuser", true)
+    val isSuperuser: Boolean get() = role.equals("superuser", true)
+
+    val roleLabel: String
+        get() = when {
+            role.equals("superuser", true) -> "Superuser"
+            isAdmin -> "Administrator"
+            else -> "Teknisi"
+        }
+
+    /** "Status Duty": apakah akun sedang bertugas. */
+    val duty: String get() = if (duty_status.equals("off", true)) "off" else "duty"
+    val dutyLabel: String get() = if (duty == "off") "Off Duty" else "Duty"
 }
 
 data class LoginRes(val token: String? = null, val user: User? = null)
@@ -32,7 +46,18 @@ data class Item(
     val qty: Double? = null,
     val last_move: Long? = null,
     val status: String? = null
-)
+) {
+    /** Stok sudah menyentuh / di bawah batas minimal. */
+    val lowStock: Boolean
+        get() {
+            val s = stok ?: qty ?: 0.0
+            val m = min_stock ?: 0.0
+            return m > 0 && s <= m
+        }
+
+    val habis: Boolean
+        get() = (stok ?: qty ?: 0.0) <= 0.0
+}
 
 data class Category(val id: Long? = null, val name: String? = null, val items: Int? = null)
 
@@ -80,10 +105,19 @@ data class WebUser(
     val username: String? = null,
     val full_name: String? = null,
     val role: String? = null,
+    val duty_status: String? = null,
     val created_at: Long? = null
 ) {
     val display: String get() = if (!full_name.isNullOrBlank()) full_name else if (!name.isNullOrBlank()) name else "(tanpa nama)"
-    val isAdmin: Boolean get() = (role ?: "").equals("admin", true)
+    val isAdmin: Boolean get() = role.equals("admin", true) || role.equals("superuser", true)
+    val isSuperuser: Boolean get() = role.equals("superuser", true)
+    val roleLabel: String
+        get() = when {
+            role.equals("superuser", true) -> "Superuser"
+            isAdmin -> "Administrator"
+            else -> "Teknisi"
+        }
+    val dutyLabel: String get() = if (duty_status.equals("off", true)) "Off Duty" else "Duty"
 }
 
 object Fmt {

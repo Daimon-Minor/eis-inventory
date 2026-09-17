@@ -31,11 +31,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eis.inventory.data.Remote
 import com.eis.inventory.data.Session
+import com.eis.inventory.notif.Notif
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -48,6 +50,7 @@ private data class EisTab(val label: String, val icon: ImageVector)
 fun MainScreen(onLogout: () -> Unit) {
     val user = Session.current()
     val admin = Session.isAdmin()
+    val ctx = LocalContext.current
     var tab by remember { mutableStateOf(0) }
 
     // Auto refresh: pantau perubahan data (stok masuk/keluar dari web) setiap 7 detik.
@@ -58,16 +61,26 @@ fun MainScreen(onLogout: () -> Unit) {
     val clock = remember { SimpleDateFormat("HH:mm:ss", Locale("id", "ID")) }
 
     LaunchedEffect(Unit) {
+        var tick = 0
         while (true) {
             try {
                 val pulse = Remote.pulse()
                 val sig = pulse.signature
-                if (signature.isNotEmpty() && sig != signature) {
+                val changed = signature.isNotEmpty() && sig != signature
+                if (changed) {
                     autoTick += 1
                     notice = "Stok berubah — data diperbarui"
                 }
                 signature = sig
                 updatedAt = clock.format(Date())
+                // Notifikasi stok menyentuh batas minimal — khusus akun admin/superuser.
+                // Dicek saat ada perubahan data dan berkala tiap ~35 detik.
+                if (admin && (changed || tick % 5 == 0)) {
+                    runCatching { Remote.items() }.getOrNull()?.items?.let {
+                        Notif.checkLowStock(ctx, it)
+                    }
+                }
+                tick += 1
             } catch (e: Exception) {
                 // koneksi terputus sesaat: lewati siklus ini, coba lagi berikutnya
             }

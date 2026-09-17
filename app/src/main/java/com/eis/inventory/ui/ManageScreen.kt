@@ -38,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -241,6 +242,7 @@ private fun UsersTab() {
     var message by remember { mutableStateOf<String?>(null) }
     var showForm by remember { mutableStateOf(false) }
     var delTarget by remember { mutableStateOf<WebUser?>(null) }
+    var editTarget by remember { mutableStateOf<WebUser?>(null) }
     val me = Session.current()
 
     LaunchedEffect(refresh) {
@@ -284,26 +286,12 @@ private fun UsersTab() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(users, key = { u -> u.id ?: 0L }) { u ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(u.display, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Text(
-                                    "@" + (u.username ?: "-") + "  ·  " + (if (u.isAdmin) "Administrator" else "Teknisi"),
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if ((u.username ?: "") != (me?.username ?: "")) {
-                                IconButton(onClick = { delTarget = u }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Hapus pengguna")
-                                }
-                            }
-                        }
-                    }
+                    UserRow(
+                        u = u,
+                        mine = (u.username ?: "") == (me?.username ?: ""),
+                        onEdit = { editTarget = it },
+                        onDelete = { delTarget = it }
+                    )
                 }
             }
         }
@@ -315,6 +303,18 @@ private fun UsersTab() {
             onSaved = { msg ->
                 message = msg
                 showForm = false
+                refresh = refresh + 1
+            }
+        )
+    }
+
+    editTarget?.let { target ->
+        UserEditDialog(
+            user = target,
+            onDismiss = { editTarget = null },
+            onSaved = { msg ->
+                message = msg
+                editTarget = null
                 refresh = refresh + 1
             }
         )
@@ -347,15 +347,158 @@ private fun UsersTab() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun UserRow(
+    u: WebUser,
+    mine: Boolean,
+    onEdit: (WebUser) -> Unit,
+    onDelete: (WebUser) -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(u.display, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(
+                    "@" + (u.username ?: "-") + "  ·  " + u.roleLabel,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Status Duty: " + u.dutyLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (u.dutyLabel == "Off Duty") MaterialTheme.colorScheme.error else Color(0xFF166534)
+                )
+            }
+            TextButton(onClick = { onEdit(u) }) { Text("Ubah", fontSize = 12.sp) }
+            if (!mine) {
+                IconButton(onClick = { onDelete(u) }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Hapus pengguna")
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UserEditDialog(user: WebUser, onDismiss: () -> Unit, onSaved: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var role by remember { mutableStateOf(user.role ?: "engineer") }
+    var duty by remember { mutableStateOf(if (user.dutyLabel == "Off Duty") "off" else "duty") }
+    var roleOpen by remember { mutableStateOf(false) }
+    var dutyOpen by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    // Hanya admin asli yang boleh memberi peran superuser.
+    val canSuper = Session.isSuperAdmin()
+    val roleText = when (role) {
+        "admin" -> "Administrator (akses penuh)"
+        "superuser" -> "Superuser (akses penuh)"
+        else -> "Teknisi (hanya barang keluar)"
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Ubah " + user.display) },
+        text = {
+            Column {
+                ExposedDropdownMenuBox(expanded = roleOpen, onExpandedChange = { roleOpen = !roleOpen }) {
+                    OutlinedTextField(
+                        value = roleText,
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Peran") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleOpen) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = roleOpen, onDismissRequest = { roleOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Teknisi (hanya barang keluar)") },
+                            onClick = { role = "engineer"; roleOpen = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Administrator (akses penuh)") },
+                            onClick = { role = "admin"; roleOpen = false }
+                        )
+                        if (canSuper) {
+                            DropdownMenuItem(
+                                text = { Text("Superuser (akses penuh)") },
+                                onClick = { role = "superuser"; roleOpen = false }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                ExposedDropdownMenuBox(expanded = dutyOpen, onExpandedChange = { dutyOpen = !dutyOpen }) {
+                    OutlinedTextField(
+                        value = if (duty == "off") "Off Duty" else "Duty",
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Status Duty") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dutyOpen) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = dutyOpen, onDismissRequest = { dutyOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Duty (sedang bertugas)") },
+                            onClick = { duty = "duty"; dutyOpen = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Off Duty (tidak bertugas)") },
+                            onClick = { duty = "off"; dutyOpen = false }
+                        )
+                    }
+                }
+                error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy,
+                onClick = {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            Remote.updateUser(user.id ?: 0L, role = role, duty = duty)
+                            onSaved("Peran & Status Duty diperbarui")
+                        } catch (e: Exception) {
+                            error = e.message ?: "Gagal menyimpan"
+                        }
+                        busy = false
+                    }
+                }
+            ) { Text("Simpan") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Batal") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun UserFormDialog(onDismiss: () -> Unit, onSaved: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("engineer") }
+    var duty by remember { mutableStateOf("duty") }
     var expanded by remember { mutableStateOf(false) }
+    var dutyOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val canSuper = Session.isSuperAdmin()
+    val roleText = when (role) {
+        "admin" -> "Administrator (akses penuh)"
+        "superuser" -> "Superuser (akses penuh)"
+        else -> "Teknisi (hanya barang keluar)"
+    }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -388,7 +531,7 @@ private fun UserFormDialog(onDismiss: () -> Unit, onSaved: (String) -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
                     OutlinedTextField(
-                        value = if (role == "admin") "Administrator" else "Teknisi (hanya barang keluar)",
+                        value = roleText,
                         onValueChange = { },
                         readOnly = true,
                         label = { Text("Peran") },
@@ -403,6 +546,33 @@ private fun UserFormDialog(onDismiss: () -> Unit, onSaved: (String) -> Unit) {
                         DropdownMenuItem(
                             text = { Text("Administrator (akses penuh)") },
                             onClick = { role = "admin"; expanded = false }
+                        )
+                        if (canSuper) {
+                            DropdownMenuItem(
+                                text = { Text("Superuser (akses penuh)") },
+                                onClick = { role = "superuser"; expanded = false }
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                ExposedDropdownMenuBox(expanded = dutyOpen, onExpandedChange = { dutyOpen = !dutyOpen }) {
+                    OutlinedTextField(
+                        value = if (duty == "off") "Off Duty" else "Duty",
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Status Duty") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dutyOpen) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = dutyOpen, onDismissRequest = { dutyOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Duty (sedang bertugas)") },
+                            onClick = { duty = "duty"; dutyOpen = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Off Duty (tidak bertugas)") },
+                            onClick = { duty = "off"; dutyOpen = false }
                         )
                     }
                 }
@@ -424,7 +594,7 @@ private fun UserFormDialog(onDismiss: () -> Unit, onSaved: (String) -> Unit) {
                     error = null
                     scope.launch {
                         try {
-                            Remote.addUser(name.trim(), username.trim(), password, role)
+                            Remote.addUser(name.trim(), username.trim(), password, role, duty)
                             onSaved("Pengguna ditambahkan")
                         } catch (e: Exception) {
                             error = e.message ?: "Gagal menyimpan"

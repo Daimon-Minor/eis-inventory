@@ -1,5 +1,8 @@
 package com.eis.inventory.ui
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -42,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eis.inventory.data.Remote
 import com.eis.inventory.data.Session
+import com.eis.inventory.notif.Notif
 import kotlinx.coroutines.launch
 
 @Composable
@@ -57,6 +63,15 @@ fun ProfileScreen(onLogout: () -> Unit) {
     var passMsg by remember { mutableStateOf<String?>(null) }
     var passOk by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Akses notifikasi: status + tombol minta izin (Android 13+).
+    val ctx = LocalContext.current
+    var notifStatus by remember { mutableStateOf(Notif.statusText(ctx)) }
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notifStatus = if (granted) Notif.statusText(ctx) else "Belum diizinkan"
+    }
 
     Column(
         modifier = Modifier
@@ -83,19 +98,61 @@ fun ProfileScreen(onLogout: () -> Unit) {
         Text(user?.display ?: "-", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("@" + (user?.username ?: "-"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        StatusPill(if (user?.isAdmin == true) "ADMIN" else "USER")
+        StatusPill(
+            when {
+                user?.isSuperuser == true -> "SUPERUSER"
+                user?.isAdmin == true -> "ADMIN"
+                else -> "USER"
+            }
+        )
         Spacer(Modifier.height(20.dp))
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 InfoRow("Nama pengambil", user?.display ?: "-")
                 InfoRow("Username", "@" + (user?.username ?: "-"))
-                InfoRow("Peran", if (user?.isAdmin == true) "Administrator (akses penuh)" else "Teknisi (barang keluar)")
+                InfoRow(
+                    "Peran",
+                    when {
+                        user?.isSuperuser == true -> "Superuser (akses penuh)"
+                        user?.isAdmin == true -> "Administrator (akses penuh)"
+                        else -> "Teknisi (barang keluar)"
+                    }
+                )
+                InfoRow("Status Duty", user?.dutyLabel ?: "Duty")
                 InfoRow("Hak akses", if (user?.isAdmin == true) "Semua menu sistem" else "Ambil barang + riwayat")
             }
         }
 
         Spacer(Modifier.height(18.dp))
+        OutlinedButton(
+            onClick = {
+                if (Notif.permissionNeeded() && !Notif.permissionGranted(ctx)) {
+                    runCatching { permLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                } else {
+                    Notif.ensureChannel(ctx)
+                    notifStatus = Notif.statusText(ctx)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Icon(Icons.Default.Notifications, contentDescription = null)
+            Spacer(Modifier.size(8.dp))
+            Text("AKSES NOTIFIKASI", fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Status: " + notifStatus,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            "Peringatan otomatis muncul saat stok menyentuh batas minimal (khusus akun admin).",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
         OutlinedButton(
             onClick = {
                 passMsg = null

@@ -20,7 +20,8 @@ object Session {
                 id = prefs?.getLong("uid", 0L),
                 name = prefs?.getString("name", null),
                 username = prefs?.getString("username", null),
-                role = prefs?.getString("role", null)
+                role = prefs?.getString("role", null),
+                duty_status = prefs?.getString("duty", null)
             )
         }
     }
@@ -29,7 +30,11 @@ object Session {
 
     fun current(): User? = user
 
+    /** Admin & superuser punya akses penuh. */
     fun isAdmin(): Boolean = user?.isAdmin == true
+
+    /** Hanya admin asli yang boleh membuat superuser. */
+    fun isSuperAdmin(): Boolean = (user?.role ?: "").equals("admin", true)
 
     fun save(token: String, u: User?) {
         Http.token = token
@@ -41,6 +46,7 @@ object Session {
             ?.putString("name", nu.name)
             ?.putString("username", nu.username)
             ?.putString("role", nu.role)
+            ?.putString("duty", nu.duty)
             ?.apply()
     }
 
@@ -52,6 +58,7 @@ object Session {
             ?.putString("name", u.name)
             ?.putString("username", u.username)
             ?.putString("role", u.role)
+            ?.putString("duty", u.duty)
             ?.apply()
     }
 

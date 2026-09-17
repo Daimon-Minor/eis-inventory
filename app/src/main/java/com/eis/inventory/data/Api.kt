@@ -119,9 +119,26 @@ object Remote {
     suspend fun users(): List<WebUser> =
         Http.parse(Http.get("/api/users"), Array<WebUser>::class.java).toList()
 
-    suspend fun addUser(name: String, username: String, password: String, role: String): String =
-        Http.post("/api/users", mapOf("name" to name, "username" to username,
-            "full_name" to name, "password" to password, "role" to role))
+    /** Tambah akun. role: engineer | admin | superuser · duty: duty | off
+     *  Peran superuser hanya diterima bila pemanggil adalah admin (di web). */
+    suspend fun addUser(
+        name: String,
+        username: String,
+        password: String,
+        role: String,
+        duty: String = "duty"
+    ): String = Http.post("/api/users", mapOf(
+        "name" to name, "username" to username, "full_name" to name,
+        "password" to password, "role" to role, "duty_status" to duty
+    ))
+
+    /** Ubah peran / Status Duty akun (khusus admin & superuser). */
+    suspend fun updateUser(id: Long, role: String? = null, duty: String? = null): String {
+        val body = HashMap<String, Any?>()
+        if (role != null) body["role"] = role
+        if (duty != null) body["duty_status"] = duty
+        return Http.patch("/api/users/" + id, body)
+    }
 
     suspend fun deleteUser(id: Long): String = Http.delete("/api/users/" + id)
 
